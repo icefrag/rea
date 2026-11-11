@@ -383,14 +383,10 @@ public final class ReaGhidraBridge extends HeadlessScript {
                 yield functionObservation(observation.dossier(), observation.limitations());
             }
             case "set_address_name", "set_addresses_names" -> {
-                if (!descriptor.transport.equals("unix-socket"))
-                    throw new RequestFailure("method_unavailable", "Windows P0 does not admit database mutation");
                 yield request.method.equals("set_address_name")
                     ? setAddressName(request.params) : setAddressesNames(request.params);
             }
             case "annotate_native_function" -> {
-                if (!descriptor.transport.equals("unix-socket"))
-                    throw new RequestFailure("method_unavailable", "Windows P0 does not admit database mutation");
                 yield annotateNativeFunction(request.params);
             }
             default -> throw new RequestFailure(
@@ -425,15 +421,14 @@ public final class ReaGhidraBridge extends HeadlessScript {
         result.addProperty("run_id", descriptor.runId);
         result.addProperty("profile_digest", descriptor.profileDigest);
         result.add("provider", provider);
-        boolean readOnly = !descriptor.transport.equals("unix-socket");
-        result.addProperty("read_only", readOnly);
+        // Session metadata edits (rename/annotate) are admitted on every
+        // transport; executable bytes stay untouched and edits are discarded
+        // when the ephemeral project closes.
+        result.addProperty("read_only", false);
         result.addProperty("analysis_complete", !timedOut);
         result.addProperty("analysis_timed_out", timedOut);
         result.add("capabilities", GSON.toJsonTree(
-            java.util.Arrays.stream(CAPABILITIES)
-                .filter(value -> !readOnly || !(value.equals("annotate_native_function")
-                    || value.equals("set_address_name") || value.equals("set_addresses_names")))
-                .toArray(String[]::new)
+            java.util.Arrays.stream(CAPABILITIES).toArray(String[]::new)
         ));
         result.add("target", target);
         JsonArray extensions = analysisExtensions.reports();

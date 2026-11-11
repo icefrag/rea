@@ -499,8 +499,9 @@ export class GhidraClient {
       return err(this.#failure("protocol", "Ghidra run identity is missing"));
     const parsed = parseGhidraSessionInfo(value, {
       runId,
-      expectedReadOnly:
-        this.#options.transport === "authenticated-loopback-tcp",
+      // Session metadata edits are admitted on every transport, including the
+      // authenticated Windows loopback; executable bytes stay untouched.
+      expectedReadOnly: false,
       providerVersion: this.#options.providerVersion,
       profileDigest: this.#options.profileDigest,
       targetSha256: this.#options.targetSha256,

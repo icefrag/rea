@@ -304,7 +304,7 @@ const workflowAvailabilityFor = ({
       : {
           reason: "provider_missing",
           remediation:
-            "On Linux x64, provide an absolute REA_WAKARU_COMMAND for Wakaru ^1.13.0 (verified with 1.14.0) and util-linux prlimit; see docs/javascript-recovery.md#install-wakaru. No binary target is required.",
+            "Provide an absolute REA_WAKARU_COMMAND for Wakaru ^1.13.0 (verified with 1.14.0); util-linux prlimit applies on Linux only. See docs/javascript-recovery.md#install-wakaru. No binary target is required.",
         };
   if (name === "inspect_binary_layout")
     return policy.binaryLayoutEnabled === true
@@ -342,7 +342,7 @@ const workflowAvailabilityFor = ({
       : {
           reason: "provider_missing",
           remediation:
-            "On Linux, provide an absolute REA_BINWALK_COMMAND (Binwalk 3.1.x, verified with 3.1.0) or REA_UNBLOB_COMMAND (Unblob 26.6.x, verified with 26.6.4) path and util-linux prlimit. Extraction also requires the selected format’s external extractor.",
+            "Set an absolute REA_BINWALK_COMMAND (Binwalk 3.1.x, verified with 3.1.0) or REA_UNBLOB_COMMAND (Unblob 26.6.x, verified with 26.6.4) path; util-linux prlimit applies on Linux only. Extraction also requires the selected format’s external extractor.",
         };
   }
   if (kind === "android-provider")

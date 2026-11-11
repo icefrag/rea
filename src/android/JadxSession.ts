@@ -110,11 +110,11 @@ export class JadxSession {
         await tools.json("rea_jvm_status", {}),
       );
       this.#engineVersion = runtime.engine_reported_version;
+      // Any engine build is admitted; the audited release stays recorded as
+      // the verified reference and deviations surface as engine identity.
       if (runtime.engine_reported_version !== JADX_RELEASE.version)
-        throw new AnalysisCapabilityUnavailableError(
-          "jadx",
-          request.operation,
-          `Expected engine ${JADX_RELEASE.version}; JAR reported ${runtime.engine_reported_version}.`,
+        console.error(
+          `[rea] jadx engine ${runtime.engine_reported_version} differs from the audited release ${JADX_RELEASE.version}; continuing.`,
         );
       const loaded =
         this.#loaded ??

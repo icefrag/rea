@@ -633,9 +633,9 @@ const versionCheck = (
     name: "version",
     passed: ghidraReleaseAccepted(raw),
     code:
-      ghidraReleaseCompatibility(raw).status === "unsupported"
-        ? "unsupported_version"
-        : "version_unresolved",
+      ghidraReleaseCompatibility(raw).status === "unresolved"
+        ? "version_unresolved"
+        : "unsupported_version",
     detail: ghidraVersionDetail(raw),
     remediation: `Install a Ghidra ${ghidraReleaseLine()} release (verified with ${SUPPORTED_GHIDRA_VERSION}), or update REA for another Ghidra line.`,
   });

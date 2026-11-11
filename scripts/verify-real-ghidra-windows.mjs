@@ -20,27 +20,20 @@ import { inspectGhidraInstallation } from "../dist/ghidra/GhidraInstallation.js"
 import { SUPPORTED_GHIDRA_VERSION } from "../dist/ghidra/GhidraInstallationPolicy.js";
 import { GhidraHeadlessLauncher } from "../dist/ghidra/GhidraLauncher.js";
 import { GHIDRA_PROVIDER_IDENTITY } from "../dist/ghidra/GhidraProviderCapabilities.js";
-import { windowsP0Capabilities } from "../dist/ghidra/GhidraProviderCapabilities.js";
 import { GHIDRA_SESSION_CAPABILITIES } from "../dist/ghidra/GhidraSessionValues.js";
 import { parseBinaryTarget } from "../dist/application/BinaryTargetResolver.js";
 import { completeVerifierRun, createVerifierRun } from "./lib/verifier-run.mjs";
 import { verifyGhidraCompactReferences } from "./lib/real-ghidra-compact-references.mjs";
 
 const verifierRun = createVerifierRun();
-const SESSION_CAPABILITIES = GHIDRA_SESSION_CAPABILITIES.filter(
-  (name) => name !== "annotate_native_function",
-);
+// Session metadata edits are admitted on Windows too; the bridge reports the
+// full capability set with read_only false.
+const SESSION_CAPABILITIES = GHIDRA_SESSION_CAPABILITIES;
 
 if (process.platform !== "win32" || process.arch !== "x64")
   throw new Error(
     "The real Windows Ghidra verifier requires a Windows x64 host",
   );
-if (
-  windowsP0Capabilities().some(
-    ({ available, effects }) => available && effects.mutatesArtifact,
-  )
-)
-  throw new Error("Windows Ghidra must not advertise database mutation");
 const installDir = process.env.GHIDRA_INSTALL_DIR;
 if (installDir === undefined || !isAbsolute(installDir))
   throw new Error(
@@ -234,11 +227,28 @@ try {
     procedure: procedure.value,
   });
 
+  // Session metadata edits are admitted on Windows; prove the annotate path
+  // end to end and confirm the readback name.
+  const annotated = await functionOperation("annotate_native_function", {
+    procedure: procedure.value,
+    name: "rea_windows_annotated",
+  });
+  if (annotated.annotations.name !== "rea_windows_annotated")
+    throw new Error("Windows annotate_native_function lost the readback name");
+  await inventory("set_address_name", {
+    document: null,
+    address: procedure.address,
+    name: "rea_windows_label",
+  });
+  await inventory("set_addresses_names", {
+    document: null,
+    names: { [procedure.address]: "rea_windows_label_batch" },
+  });
+
+  // Every admitted inventory and function operation is exercised above.
   const expected = [
     ...GHIDRA_INVENTORY_OPERATIONS,
-    ...GHIDRA_FUNCTION_OPERATIONS.filter(
-      (name) => name !== "annotate_native_function",
-    ),
+    ...GHIDRA_FUNCTION_OPERATIONS,
   ];
   if (
     observed.size !== expected.length ||
@@ -331,7 +341,7 @@ function assertSession(session, targetSha256, profileDigest) {
     session.provider.version !== SUPPORTED_GHIDRA_VERSION ||
     session.profile_digest !== profileDigest ||
     session.target.sha256 !== targetSha256 ||
-    session.read_only !== true ||
+    session.read_only !== false ||
     session.analysis_complete !== true ||
     session.analysis_timed_out !== false ||
     session.capabilities.length !== SESSION_CAPABILITIES.length ||

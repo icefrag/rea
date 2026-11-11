@@ -1,22 +1,26 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { parseEvidence } from "../../../dist/domain/evidence.js";
-import { hashAndroidFile } from "../../../dist/android/AndroidTargetSnapshot.js";
+import { createHash } from "node:crypto";
 import { JADX_RELEASE } from "../../../dist/android/JadxRelease.js";
 import fixture from "../../fixtures/android/apidemos.json" with { type: "json" };
 import { verifyAndroidCliCancellation } from "./cli-cancellation.mjs";
 import { verifyAndroidMetadata } from "./metadata.mjs";
 import { verifyAndroidFailureRecovery } from "./failure-recovery.mjs";
-import { resolveJadxConfiguration } from "../../../dist/android/JadxConfiguration.js";
+import { resolveJadxConfigurationInputs as resolveJadxConfiguration } from "../../../dist/android/JadxConfiguration.js";
 import { verifyWindowsAndroidLifecycle } from "./windows-lifecycle.mjs";
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const hashAndroidFile = async (path) =>
+  createHash("sha256")
+    .update(await readFile(path))
+    .digest("hex");
 const apk = process.env.REA_ANDROID_TEST_APK;
 const jar = process.env.REA_JADX_MCP_JAR;
 if (apk === undefined || jar === undefined)

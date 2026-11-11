@@ -147,14 +147,14 @@ const installSessionToolAvailability = (
       binaryLayoutEnabled: options.binaryLayout !== undefined || pwntools,
       firmwareInspectionEnabled:
         options.firmwareAnalysis !== undefined ||
-        (linux && isAbsolute(environment.REA_BINWALK_COMMAND ?? "")),
+        isAbsolute(environment.REA_BINWALK_COMMAND ?? ""),
       firmwareExtractionEnabled:
         options.firmwareAnalysis !== undefined ||
-        (linux && isAbsolute(environment.REA_UNBLOB_COMMAND ?? "")),
+        isAbsolute(environment.REA_UNBLOB_COMMAND ?? ""),
       browserObservationEnabled: options.browserObservation !== undefined,
       javascriptRecoveryEnabled:
         options.javascriptRecovery !== undefined ||
-        (linuxX64 && isAbsolute(environment.REA_WAKARU_COMMAND ?? "")),
+        isAbsolute(environment.REA_WAKARU_COMMAND ?? ""),
       browserScenarioEnabled: options.browserScenarioCapture !== undefined,
       electronObservationEnabled: options.electronObservation !== undefined,
       electronAutomationEnabled:

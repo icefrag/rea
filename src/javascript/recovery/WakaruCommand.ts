@@ -23,6 +23,7 @@ import {
   recoveryFailureMessage,
 } from "./RecoveryFiles.js";
 import { RECOVERY_LIMITS } from "./WakaruRelease.js";
+import { wakaruReleaseLine } from "./WakaruVersion.js";
 
 const OPERATION = "recover_javascript_sources";
 const WAKARU_REQUIREMENT =
@@ -63,16 +64,11 @@ export const resolveWakaruCommand = async (
   environment: Readonly<Record<string, string | undefined>>,
 ) => {
   const configured = environment.REA_WAKARU_COMMAND;
-  if (
-    process.platform !== "linux" ||
-    process.arch !== "x64" ||
-    configured === undefined ||
-    !isAbsolute(configured)
-  )
+  if (configured === undefined || !isAbsolute(configured))
     throw new AnalysisCapabilityUnavailableError(
       "wakaru",
       OPERATION,
-      WAKARU_REQUIREMENT,
+      `Set REA_WAKARU_COMMAND to an absolute Wakaru executable path (${wakaruReleaseLine()})`,
       { userMessage: WAKARU_REQUIREMENT },
     );
   try {
@@ -82,11 +78,17 @@ export const resolveWakaruCommand = async (
       command,
       RECOVERY_LIMITS.outputBytes,
     );
+    // util-linux prlimit bounds Wakaru on Linux; other hosts run it directly
+    // under the owned process supervisor without a resource limiter.
     const limiter =
-      environment.REA_JAVASCRIPT_PRLIMIT_COMMAND ?? "/usr/bin/prlimit";
-    if (!isAbsolute(limiter))
-      throw new TypeError("REA_JAVASCRIPT_PRLIMIT_COMMAND must be absolute");
-    await access(limiter, constants.X_OK);
+      process.platform === "linux"
+        ? (environment.REA_JAVASCRIPT_PRLIMIT_COMMAND ?? "/usr/bin/prlimit")
+        : null;
+    if (limiter !== null) {
+      if (!isAbsolute(limiter))
+        throw new TypeError("REA_JAVASCRIPT_PRLIMIT_COMMAND must be absolute");
+      await access(limiter, constants.X_OK);
+    }
     return { command, limiter, ...fingerprint };
   } catch (cause: unknown) {
     const reason = `Configured Wakaru or util-linux prlimit is unavailable: ${recoveryFailureMessage(cause)}`;
@@ -99,7 +101,7 @@ export const resolveWakaruCommand = async (
 
 type WakaruCommandContext = {
   command: string;
-  limiter: string;
+  limiter: string | null;
   arguments: readonly string[];
   cwd: string;
   deadline: number;
@@ -114,16 +116,23 @@ export const runWakaruCommand = async (context: WakaruCommandContext) => {
   checkRecoveryDeadline(context.deadline, context.signal);
   const runId = `rea-wakaru-${randomUUID()}`;
   const spawned = await (context.launcher ?? spawnOwnedProviderProcess)({
-    command: context.limiter,
-    arguments: [
-      `--as=${String(RECOVERY_LIMITS.addressSpaceBytes)}`,
-      `--fsize=${String(RECOVERY_LIMITS.outputBytes)}`,
-      "--core=0",
-      "--cpu=120",
-      "--",
-      context.command,
-      ...context.arguments,
-    ],
+    ...(context.limiter === null
+      ? {
+          command: context.command,
+          arguments: [...context.arguments],
+        }
+      : {
+          command: context.limiter,
+          arguments: [
+            `--as=${String(RECOVERY_LIMITS.addressSpaceBytes)}`,
+            `--fsize=${String(RECOVERY_LIMITS.outputBytes)}`,
+            "--core=0",
+            "--cpu=120",
+            "--",
+            context.command,
+            ...context.arguments,
+          ],
+        }),
     expectedCommand: null,
     runId,
     cwd: context.cwd,

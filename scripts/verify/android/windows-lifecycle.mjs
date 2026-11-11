@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { resolveJadxConfiguration } from "../../../dist/android/JadxConfiguration.js";
+import { resolveJadxConfigurationInputs as resolveJadxConfiguration } from "../../../dist/android/JadxConfiguration.js";
 
 /** Verify real Windows cancellation, disconnect and abrupt CLI owner exit. */
 export async function verifyWindowsAndroidLifecycle(options) {

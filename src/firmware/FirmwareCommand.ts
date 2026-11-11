@@ -48,15 +48,11 @@ export const resolveFirmwareCommand = async (
   const variable =
     engine === "binwalk" ? "REA_BINWALK_COMMAND" : "REA_UNBLOB_COMMAND";
   const configured = environment[variable];
-  if (
-    process.platform !== "linux" ||
-    configured === undefined ||
-    !isAbsolute(configured)
-  )
+  if (configured === undefined || !isAbsolute(configured))
     throw firmwareToolUnavailable(
       engine,
       operation,
-      `This integration requires Linux and an absolute ${variable} path to the caller-supplied tool`,
+      `Set ${variable} to an absolute path of the caller-supplied tool`,
     );
   const command = await realpath(configured).catch((cause: unknown) => {
     throw firmwareToolUnavailable(
@@ -78,24 +74,30 @@ export const resolveFirmwareCommand = async (
       `${variable} is not a readable executable regular file: ${command}: ${cause instanceof Error ? cause.message : String(cause)}`,
     );
   }
+  // util-linux prlimit bounds the tool on Linux; other hosts run the tool
+  // directly under the owned process supervisor without a resource limiter.
   const limiter =
-    environment.REA_FIRMWARE_PRLIMIT_COMMAND ?? "/usr/bin/prlimit";
-  if (!isAbsolute(limiter))
-    throw firmwareToolUnavailable(
-      engine,
-      operation,
-      "REA_FIRMWARE_PRLIMIT_COMMAND must be absolute",
-    );
-  try {
-    await access(limiter, constants.X_OK);
-    if (!(await stat(limiter)).isFile())
-      throw new TypeError("Configured path is not a regular file");
-  } catch (cause: unknown) {
-    throw firmwareToolUnavailable(
-      engine,
-      operation,
-      `Resource limiter is not an executable regular file: ${limiter}: ${cause instanceof Error ? cause.message : String(cause)}; provide util-linux prlimit`,
-    );
+    process.platform === "linux"
+      ? (environment.REA_FIRMWARE_PRLIMIT_COMMAND ?? "/usr/bin/prlimit")
+      : null;
+  if (limiter !== null) {
+    if (!isAbsolute(limiter))
+      throw firmwareToolUnavailable(
+        engine,
+        operation,
+        "REA_FIRMWARE_PRLIMIT_COMMAND must be absolute",
+      );
+    try {
+      await access(limiter, constants.X_OK);
+      if (!(await stat(limiter)).isFile())
+        throw new TypeError("Configured path is not a regular file");
+    } catch (cause: unknown) {
+      throw firmwareToolUnavailable(
+        engine,
+        operation,
+        `Resource limiter is not an executable regular file: ${limiter}: ${cause instanceof Error ? cause.message : String(cause)}; provide util-linux prlimit`,
+      );
+    }
   }
   return { command, limiter, sha256 };
 };
@@ -105,7 +107,7 @@ export const runFirmwareCommand = async (context: {
   engine: string;
   operation: string;
   command: string;
-  limiter: string;
+  limiter: string | null;
   args: readonly string[];
   cwd: string;
   environment: Readonly<Record<string, string | undefined>>;
@@ -119,16 +121,23 @@ export const runFirmwareCommand = async (context: {
   signal.throwIfAborted();
   const runId = `rea-firmware-${randomUUID()}`;
   const spawned = await (context.launcher ?? spawnOwnedProviderProcess)({
-    command: context.limiter,
-    arguments: [
-      `--as=${FIRMWARE_LIMITS.addressSpaceBytes}`,
-      `--fsize=${context.outputBudget?.bytes ?? FIRMWARE_LIMITS.reportBytes}`,
-      "--core=0",
-      "--cpu=120",
-      "--",
-      context.command,
-      ...context.args,
-    ],
+    ...(context.limiter === null
+      ? {
+          command: context.command,
+          arguments: [...context.args],
+        }
+      : {
+          command: context.limiter,
+          arguments: [
+            `--as=${FIRMWARE_LIMITS.addressSpaceBytes}`,
+            `--fsize=${context.outputBudget?.bytes ?? FIRMWARE_LIMITS.reportBytes}`,
+            "--core=0",
+            "--cpu=120",
+            "--",
+            context.command,
+            ...context.args,
+          ],
+        }),
     expectedCommand: null,
     runId,
     cwd: context.cwd,

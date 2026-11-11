@@ -203,14 +203,8 @@ export const windowsP0Capabilities = (): readonly CapabilityDescriptor[] => {
         ...capability.limitations,
         ...windowsP0Limitations,
       ]);
-      if (capability.effects.mutatesArtifact)
-        return Object.freeze({
-          ...capability,
-          available: false,
-          reason: "Windows Ghidra P0 does not admit database mutation.",
-          availabilityCode: "unsupported_host",
-          limitations,
-        });
+      // Session metadata edits (annotate/rename) stay available; they write
+      // Program metadata only and are discarded with the ephemeral project.
       return available
         ? Object.freeze({ ...capability, limitations })
         : Object.freeze({

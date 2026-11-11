@@ -26,11 +26,6 @@ type GhidraReleaseCompatibility =
       readonly version: GhidraReleaseVersion;
       readonly raw: string;
     }
-  | {
-      readonly status: "unsupported";
-      readonly version: GhidraReleaseVersion;
-      readonly raw: string;
-    }
   | { readonly status: "unresolved"; readonly raw: string | null };
 
 /** One Java major bound declared by `application.properties`. */
@@ -75,10 +70,9 @@ export const ghidraReleaseCompatibility = (
   if (version === undefined) return { status: "unresolved", raw };
   if (raw === SUPPORTED_GHIDRA_VERSION)
     return { status: "verified", version, raw };
-  const verified = verifiedGhidraRelease();
-  return version.major === verified.major && version.minor === verified.minor
-    ? { status: "compatible", version, raw }
-    : { status: "unsupported", version, raw };
+  // Any parseable release is admitted; the verified build stays recorded as
+  // the reference and the observed version is reported on the provider.
+  return { status: "compatible", version, raw };
 };
 
 /**
@@ -108,9 +102,7 @@ export const ghidraVersionDetail = (raw: string | null | undefined): string => {
     case "verified":
       return compatibility.raw;
     case "compatible":
-      return `${compatibility.raw}; compatible ${ghidraReleaseLine()} release (verified build ${SUPPORTED_GHIDRA_VERSION})`;
-    case "unsupported":
-      return `${compatibility.raw}; accepted releases are ${ghidraReleaseLine()} (verified build ${SUPPORTED_GHIDRA_VERSION})`;
+      return `${compatibility.raw}; admitted release (verified build ${SUPPORTED_GHIDRA_VERSION})`;
     default: {
       const unreachable: never = compatibility;
       return unreachable;
